@@ -38,8 +38,8 @@ class CasacadeSegmentor:
         )
 
     def build(self, num_output, input_shape, K, covariance_type="diag"):
-        return self.build_sequencial(self, num_output, input_shape), self.build_gmm(
-            self, K, covariance_type=covariance_type
+        return self.build_sequencial(num_output, input_shape), self.build_gmm(
+            K, covariance_type=covariance_type
         )
 
     def build_gmm(self, K, covariance_type):
@@ -140,18 +140,19 @@ class CasacadeSegmentor:
         metrics=["accuracy"],
         optimizer="RMSprop",
         callbacks=[],
+        head_epochs=1,
         **kwargs,
     ):
         history_seq = self.train_sequential(
             X,
             Y,
-            epochs=10000,
-            batch_size=16,
-            validation_split=0.15,
-            loss="mean_squared_error",
-            metrics=["accuracy"],
-            optimizer="RMSprop",
-            callbacks=[],
+            epochs=epochs,
+            batch_size=batch_size,
+            validation_split=validation_split,
+            loss=loss,
+            metrics=metrics,
+            optimizer=optimizer,
+            callbacks=callbacks,
             **kwargs,
         )
         features = self.intermediateFeat(X)
@@ -162,16 +163,16 @@ class CasacadeSegmentor:
             features,
             Y,
             cli_idxs,
-            epochs=100,
-            batch_size=16,
-            validation_split=0.15,
-            loss="mean_squared_error",
-            metrics=["accuracy"],
+            epochs=head_epochs,
+            batch_size=batch_size,
+            validation_split=validation_split,
+            loss=loss,
+            metrics=metrics,
             lr=0.001,
             momentum=0.99,
         )
 
-        return history_seq, history_heads
+        return history_seq.history, history_heads
 
     def train_sequential(
         self,
@@ -235,8 +236,12 @@ class CasacadeSegmentor:
                 loss=loss,
                 metrics=metrics,
             )
+            if len(X[cl_idxs[i]]) < batch_size:
+                batch_size = len(X[cl_idxs[i]])
+                validation_split = 0
             histories.append(
-                self.heads[i].fit(
+                self.heads[i]
+                .fit(
                     X[cl_idxs[i]],
                     Y[cl_idxs[i]],
                     batch_size=batch_size,
@@ -246,6 +251,7 @@ class CasacadeSegmentor:
                     callbacks=callbacks,
                     **kwargs,
                 )
+                .history
             )
 
         return histories
@@ -266,8 +272,8 @@ class CasacadeSegmentor:
         self.evaluate_heads(X, Y, metrics, loss, **kwargs)
         return 0
 
-    def evaluate_sequential(self, X, Y, metrics, loss, **kwargs):
-        self.model_seq.model.compile(metrics=metrics, loss=loss)
+    def evaluate_sequential(self, X, Y, metrics, loss, optimizer="RMSprop", **kwargs):
+        self.model_seq.model.compile(optimizer=optimizer, metrics=metrics, loss=loss)
         (loss, accuracy) = self.model_seq.evaluate(X, Y, batch_size=32, **kwargs)
 
         print("loss : {}".format(loss))
@@ -275,22 +281,48 @@ class CasacadeSegmentor:
 
         return (loss, accuracy)
 
-    def evaluate_heads(self, X, Y, metrics, loss, **kwargs):
+    def evaluate_heads(
+        self, X, Y, metrics, loss, optimizer=SGD(lr=0.001, momentum=0.99), **kwargs
+    ):
+        feats = self.intermediateFeat(X)
+        clusters = self.model_gmm.predict(feats.reshape(len(feats), -1))
+        cnt = 0
         for head in self.heads:
-            head.compile(metrics=metrics, loss=loss)
-            (loss, accuracy) = head.evaluate(X, Y, batch_size=32, **kwargs)
-
-            print("loss : {}".format(loss))
+            head.compile(optimizer=optimizer, metrics=metrics, loss=loss)
+            idxs = np.argwhere(clusters == cnt)
+            (loss_v, accuracy) = head.evaluate(
+                feats[idxs].squeeze(),
+                Y[idxs].squeeze(),
+                batch_size=32,
+                **kwargs,
+            )
+            print("loss : {}".format(loss_v))
             print("accuracy : {}".format(accuracy))
+            cnt += 1
 
         return (loss, accuracy)
 
     def predict(self, X, a=40, b=0.5):
+        X = np.expand_dims(X, 0)
+        feat = self.intermediateFeat(X)
+        label = self.model_gmm.predict(feat.reshape(len(feat), -1))[0]
+        m = self.heads[label]
+        f = feat[0, :]
+        result = m.predict(
+            np.array(
+                [
+                    f,
+                ]
+            )
+        )
+        pre = np.array(result).reshape(-1, 112).squeeze()
+        return (pre + b) * a
+
+    def batch_predict(self, X, a=40, b=0.5):
         result = [[] for i in range(len(X))]
         feat = self.intermediateFeat(X)
         labels = self.model_gmm.predict(feat.reshape(len(feat), -1))
-
-        for i in range(len(X)):
+        for i in range(len(result)):
             f = feat[i, :]
             m = self.heads[labels[i]]
             result[i] = m.predict(
@@ -309,16 +341,28 @@ class CasacadeSegmentor:
         return features
 
     def save(self, folder_path, **kwargs):
+        print("saving the model in ", folder_path)
         self.model_seq.save(folder_path + "/seq.h5", **kwargs)
         self.model_seq.save(folder_path + "/seq_gaph.pb", **kwargs)
-        self.model_gmm.save(folder_path + "/gmm.h5", **kwargs)
+        np.save(
+            folder_path + "gmm_weights", self.model_gmm.weights_, allow_pickle=False
+        )
+        np.save(folder_path + "gmm_means", self.model_gmm.means_, allow_pickle=False)
+        np.save(
+            folder_path + "gmm_covariances",
+            self.model_gmm.covariances_,
+            allow_pickle=False,
+        )
         for i in range(self.K):
             self.heads[i].save(folder_path + "/head" + str(i) + ".h5")
         return True
 
     def load_weights(self, folder_path, **kwargs):
+        print("loading the model from ", folder_path)
         self.model_seq.load_weights(folder_path + "/seq.h5", **kwargs)
-        self.model_gmm.load_weights(folder_path + "/gmm.h5", **kwargs)
+        self.model_gmm.weights_ = np.load(folder_path + "gmm_weights.npy")
+        self.model_gmm.means_ = np.load(folder_path + "gmm_means.npy")
+        self.model_gmm.covariances_ = np.load(folder_path + "gmm_covariances.npy")
         for i in range(self.K):
             self.heads[i].load_weights(folder_path + "/head" + str(i) + ".h5")
         return True

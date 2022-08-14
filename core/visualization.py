@@ -66,7 +66,7 @@ def show_lip_segment(
     plt.scatter(est_x, est_y, s=2)
     nn = 15
     x_new = np.linspace(est_x[0:nn].min(), est_y[0:nn].max(), 50)
-    f = interp1d(est_x[0:nn], est_y[56 : 56 + nn], kind="quadratic")
+    f = interp1d(est_x[0:nn], est_y[0:nn], kind="quadratic")
     y_smooth = f(x_new)
     plt.plot(x_new, y_smooth)
     plt.imshow(image)
@@ -90,8 +90,8 @@ def show_loss(history, out_path=None):
 
 
 def show_accuracy(history, out_path=None):
-    plt.plot(history["acc"])
-    plt.plot(history["val_acc"])
+    plt.plot(history["accuracy"])
+    plt.plot(history["val_accuracy"])
     plt.title("Model accuracy")
     plt.ylabel("accuracy")
     plt.xlabel("Epoch")
