@@ -1,8 +1,8 @@
 import os
 import argparse
-from model import CasacadeSegmentor
-import visualization as vis
-from data import *
+from core.model import CasacadeSegmentor
+import core.visualization as vis
+from core.data import *
 import cv2
 
 
@@ -12,34 +12,34 @@ def parse_arguments():
         "--image_path",
         type=str,
         default="data/image",
-        help="Path to the image",
+        help="Path to the test image",
         required=True,
     )
     parser.add_argument(
         "--mean_image_path",
         type=str,
         default="data/image",
-        help="Path to the images mean",
+        help="Path to the training images mean",
         required=True,
     )
     parser.add_argument(
         "--std_image_path",
         type=str,
         default="data/image",
-        help="Path to the images std",
+        help="Path to the training images std",
         required=True,
     )
     parser.add_argument(
         "--results_path",
         type=str,
-        default="results",
-        help="Path to save results",
-        required=True,
+        default="./results",
+        help="Path for saving the results",
+        required=False,
     )
     parser.add_argument(
         "--weights_path",
         type=str,
-        help="Path to load model's weights",
+        help="Path to the model's weights for loading",
         required=True,
     )
     args = parser.parse_args()
@@ -47,28 +47,28 @@ def parse_arguments():
 
 
 def main():
-    # Parameters
+    # get the parameters
     args = parse_arguments()
     input_shape = (40, 40, 3)
 
-    # Make Directory
+    # make output directory if it is not exist
     if not os.path.exists(args.results_path):
         os.makedirs(args.results_path)
 
-    # Read Data
+    # read test,mean and std images
     image = cv2.imread(args.image_path)
     mean_image = cv2.imread(args.mean_image_path)
     std_image = cv2.imread(args.std_image_path)
 
-    # nomalize data
+    # nomalize the test image
     image = normalize(image, mean_image, std_image)
 
     # create model
     model = CasacadeSegmentor(input_shape=input_shape, num_output=112, K=10)
-    # load
+    # load weights into the model
     history_seq, history_heads = model.load(args.weights_path)
 
-    # predict
+    # predict lip area
     result = model.predict(image)
     vis.show_result(
         image,
@@ -77,6 +77,7 @@ def main():
         out_path=args.results_path + "/predict.jpg",
     )
 
+    # show the lip segmentation
     vis.show_lip_segment(
         image,
         est_x=result[0:56],

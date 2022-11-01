@@ -29,17 +29,10 @@ def parse_arguments():
         help="Path to the test idxs.",
         required=False,
     )
-    # parser.add_argument(
-    #     "--train_csv_path",
-    #     type=str,
-    #     default="data/trainnames.txt",
-    #     help="Path to train idxs.",
-    #     required=False,
-    # )
     parser.add_argument(
         "--results_path",
         type=str,
-        default="./output",
+        default="./output/",
         help="Path to save results",
         required=False,
     )
@@ -84,37 +77,40 @@ def parse_arguments():
 
 
 def main():
-    # Parameters
+    # get the parameters
     args = parse_arguments()
-    print(args)
     input_shape = (40, 40, 3)
-    # Make Directory
+
+    # make output directory if it is not exist
     if not os.path.exists(args.results_path):
         os.makedirs(args.results_path)
+
+    # read the training data
     images, x, y, intest = read_data(
         args.data_path, args.annotations_path, args.test_csv_path, input_shape[0:2]
     )
-    # split
+
+    # split the train and test data
     train_images, test_images, train_points, test_points = split_train_val(
         images, x, y, intest
     )
-    print("1")
-    # mean
+
+    # compute mean image
     mean_image = mean_X(images)
-    print("1")
-    # STD
+
+    # compute STD image
     std_image = std_X(train_images, mean_image)
-    print("1")
-    # nomalize data
+
+    # nomalize data based on mean and STD images
     train_images = normalize(train_images, mean_image, std_image)
     test_images = normalize(test_images, mean_image, std_image)
     train_points = normalizep(train_points)
     test_points = normalizep(test_points)
-    print("1")
-    # create model
+
+    # create an instance of the model
     model = CasacadeSegmentor(input_shape=input_shape, num_output=112, K=10)
-    # train
-    print("1")
+
+    # train the model with given parameters
     history_seq, history_heads = model.fit(
         train_images,
         train_points,
@@ -126,21 +122,16 @@ def main():
         optimizer="RMSprop",
         verbose=1,
     )
-    # save
+    # save the trained model
     model.save(args.results_path)
-    # load
-    # from keras.models import load_model
-    # model = load_model('my_model.h5') or('basemodel.h5')
 
-    # test model
-
+    # evaluate the model performance
     print("Evaluating on train set")
-    # model.evaluate(train_images, train_points, metrics=["accuracy"], loss=args.loss)
-
+    model.evaluate(train_images, train_points, metrics=["accuracy"], loss=args.loss)
     print("Evaluating on test set")
-    # model.evaluate(test_images, test_points, metrics=["accuracy"], loss=args.loss)
+    model.evaluate(test_images, test_points, metrics=["accuracy"], loss=args.loss)
 
-    # visualization
+    # sample data visualization
     I = 16
     result = model.predict(train_images[I, :, :, :])
     vis.show_result_gt(
