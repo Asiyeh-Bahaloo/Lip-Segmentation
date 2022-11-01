@@ -75,3 +75,5 @@ dmypy.json
 .pytype/
 .result/
 .env.dev
+*.npy
+output/
