@@ -34,7 +34,7 @@ To install all the dependencies just run the command below in your environment.
 
 We have provided the code to train the model on Helen or AFW data set. If you have another dataset please add another function to read and crop the lip area and change the function in `train.py` script. To run the train script download the training data and run the code below:
 
-    train.py --data_path Path/to/the/images/folder \
+python  train.py --data_path Path/to/the/images/folder \
              --annotations_path Path/to/the/annotation/folder \
              --test_csv_path Path/to/the/test/indices
 
@@ -45,8 +45,8 @@ This will train the model with default parameters. You can change them as well.
 
 After training you can choose any image for the test. Run the code below to see the segmentation of the lips:
 
-        test.py --image_path Path/to/the/test_image
-                --mean_image_path Path/to/the/training_images_mean
-                --std_image_path Path/to/the/training_images_std
-                --weights_path Path/to/the/model's_weights
+python  test.py --image_path Path/to/the/test_image
+            --mean_image_path Path/to/the/training_images_mean
+            --std_image_path Path/to/the/training_images_std
+            --weights_path Path/to/the/model's_weights
 

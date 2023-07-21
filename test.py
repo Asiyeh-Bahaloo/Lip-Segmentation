@@ -39,7 +39,7 @@ def parse_arguments():
     parser.add_argument(
         "--weights_path",
         type=str,
-        help="Path to the model's weights for loading",
+        help="Path to the directory containing all of the model's weights for loading",
         required=True,
     )
     args = parser.parse_args()
@@ -49,7 +49,7 @@ def parse_arguments():
 def main():
     # get the parameters
     args = parse_arguments()
-    input_shape = (40, 40, 3)
+    w, h, channel = (40, 40, 3)
 
     # make output directory if it is not exist
     if not os.path.exists(args.results_path):
@@ -59,16 +59,25 @@ def main():
     image = cv2.imread(args.image_path)
     mean_image = cv2.imread(args.mean_image_path)
     std_image = cv2.imread(args.std_image_path)
+    if image is None or mean_image is None or std_image is None:
+        print("Some of the pathes are wrong!!!")
+        return
+
+    # resize all images
+    image = cv2.resize(image, (w, h))
+    mean_image = cv2.resize(mean_image, (w, h))
+    std_image = cv2.resize(std_image, (w, h))
 
     # nomalize the test image
     image = normalize(image, mean_image, std_image)
 
     # create model
-    model = CasacadeSegmentor(input_shape=input_shape, num_output=112, K=10)
+    model = CasacadeSegmentor(input_shape=(w, h, channel), num_output=112, K=10)
     # load weights into the model
-    history_seq, history_heads = model.load(args.weights_path)
+    model.load_weights(args.weights_path)
 
     # predict lip area
+    print("gmm", model.model_gmm)
     result = model.predict(image)
     vis.show_result(
         image,
@@ -85,3 +94,8 @@ def main():
         nn=15,
         out_path=args.results_path + "/predict_segmentation.jpg",
     )
+    print(args.results_path + "/predict_segmentation.jpg")
+
+
+if __name__ == "__main__":
+    main()

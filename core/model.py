@@ -36,6 +36,7 @@ class CasacadeSegmentor:
         self.model_seq, self.model_gmm = self.build(
             self.num_output, self.input_shape, self.K
         )
+        self.heads = self.build_heads(self.model_seq, self.K)
 
     def build(self, num_output, input_shape, K, covariance_type="diag"):
         return self.build_sequencial(num_output, input_shape), self.build_gmm(
@@ -46,14 +47,14 @@ class CasacadeSegmentor:
         gmm = GaussianMixture(n_components=K, covariance_type=covariance_type)
         return gmm
 
-    # def build_heads(self, K, layers): #model_seq.layers[8:10]
-    #     heads = []
-    #     for i in range(self.K):
-    #         Tcnn = Sequential()
-    #         for layer in layers:
-    #             Tcnn.add(layer)
-    #         heads.append(Tcnn)
-    #     return heads
+    def build_heads(self, model_seq, K):
+        heads = []
+        for i in range(K):
+            Tcnn = Sequential()
+            for layer in model_seq.layers[8:10]:
+                Tcnn.add(layer)
+            heads.append(Tcnn)
+        return heads
 
     # def init_weights_heads(self):
     #     for head in self.heads:
@@ -159,7 +160,7 @@ class CasacadeSegmentor:
         self.model_gmm = self.train_gmm(features)
         labels = self.model_gmm.predict(features)
         cli_idxs = self.get_cli_idxs(labels)
-        history_heads = self.build_and_train_heads(
+        self.heads = self.build_and_train_heads(
             features,
             Y,
             cli_idxs,
@@ -172,7 +173,7 @@ class CasacadeSegmentor:
             momentum=0.99,
         )
 
-        return history_seq.history, history_heads
+        return history_seq.history, self.heads
 
     def train_sequential(
         self,
@@ -305,6 +306,7 @@ class CasacadeSegmentor:
     def predict(self, X, a=40, b=0.5):
         X = np.expand_dims(X, 0)
         feat = self.intermediateFeat(X)
+        print("feat", feat.shape)
         label = self.model_gmm.predict(feat.reshape(len(feat), -1))[0]
         m = self.heads[label]
         f = feat[0, :]
@@ -360,9 +362,9 @@ class CasacadeSegmentor:
     def load_weights(self, folder_path, **kwargs):
         print("loading the model from ", folder_path)
         self.model_seq.load_weights(folder_path + "/seq.h5", **kwargs)
-        self.model_gmm.weights_ = np.load(folder_path + "gmm_weights.npy")
-        self.model_gmm.means_ = np.load(folder_path + "gmm_means.npy")
-        self.model_gmm.covariances_ = np.load(folder_path + "gmm_covariances.npy")
+        self.model_gmm.weights_ = np.load(folder_path + "/gmm_weights.npy")
+        self.model_gmm.means_ = np.load(folder_path + "/gmm_means.npy")
+        self.model_gmm.covariances_ = np.load(folder_path + "/gmm_covariances.npy")
         for i in range(self.K):
             self.heads[i].load_weights(folder_path + "/head" + str(i) + ".h5")
         return True
