@@ -80,6 +80,7 @@ def main():
     # get the parameters
     args = parse_arguments()
     input_shape = (40, 40, 3)
+    head_epochs = 10
 
     # make output directory if it is not exist
     if not os.path.exists(args.results_path):
@@ -111,7 +112,7 @@ def main():
     model = CasacadeSegmentor(input_shape=input_shape, num_output=112, K=10)
 
     # train the model with given parameters
-    history_seq, history_heads = model.fit(
+    seq_history, heads_history = model.fit(
         train_images,
         train_points,
         epochs=args.epochs,
@@ -121,6 +122,7 @@ def main():
         metrics=["accuracy"],
         optimizer="RMSprop",
         verbose=1,
+        head_epochs=head_epochs,
     )
     # save the trained model
     model.save(args.results_path)
@@ -159,17 +161,17 @@ def main():
         nn=15,
         out_path=args.results_path + "/segmentation_test_6.jpg",
     )
-    vis.show_loss(history_seq, out_path=args.results_path + "/loss_backbone.jpg")
+    vis.show_loss(seq_history, out_path=args.results_path + "/loss_backbone.jpg")
     vis.show_accuracy(
-        history_seq, out_path=args.results_path + "/accuracy_backbone.jpg"
+        seq_history, out_path=args.results_path + "/accuracy_backbone.jpg"
     )
     vis.show_gmm_means(
-        model.get_gmm_means(size=(3, 3, 64)),
+        model.get_gmm_means(size=(12, 16, 3)),
         K=10,
         out_path=args.results_path + "/gmm_mean",
     )
     cnt = 0
-    for history_head in history_heads:
+    for history_head in heads_history:
         cnt = cnt + 1
         vis.show_loss(
             history_head, out_path=args.results_path + "/loss_head_" + str(cnt) + ".jpg"

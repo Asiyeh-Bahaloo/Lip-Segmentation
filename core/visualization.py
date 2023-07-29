@@ -77,8 +77,12 @@ def show_lip_segment(
 
 
 def show_loss(history, out_path=None):
+    plt.clf()
     plt.plot(history["loss"])
-    plt.plot(history["val_loss"])
+    try:
+        plt.plot(history["val_loss"])
+    except:
+        print("No validation data is available")
     plt.title("Model loss")
     plt.ylabel("loss")
     plt.xlabel("Epoch")
@@ -90,8 +94,12 @@ def show_loss(history, out_path=None):
 
 
 def show_accuracy(history, out_path=None):
+    plt.clf()
     plt.plot(history["accuracy"])
-    plt.plot(history["val_accuracy"])
+    try:
+        plt.plot(history["val_accuracy"])
+    except:
+        print("No validation data is available")
     plt.title("Model accuracy")
     plt.ylabel("accuracy")
     plt.xlabel("Epoch")

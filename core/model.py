@@ -144,6 +144,8 @@ class CasacadeSegmentor:
         head_epochs=1,
         **kwargs,
     ):
+        # 1) Train the sequential part
+        print("************ training sequential part ************")
         history_seq = self.train_sequential(
             X,
             Y,
@@ -156,11 +158,15 @@ class CasacadeSegmentor:
             callbacks=callbacks,
             **kwargs,
         )
+        # 2) Train GMM for clustering the images
+        print("************ training GMM for clustering the images ************")
         features = self.intermediateFeat(X)
         self.model_gmm = self.train_gmm(features)
         labels = self.model_gmm.predict(features)
         cli_idxs = self.get_cli_idxs(labels)
-        self.heads = self.build_and_train_heads(
+        # 3) Fine Tune the heads with related cluster
+        print("************ fine tuning the heads with related cluster ************")
+        self.heads, head_history = self.build_and_train_heads(
             features,
             Y,
             cli_idxs,
@@ -173,7 +179,7 @@ class CasacadeSegmentor:
             momentum=0.99,
         )
 
-        return history_seq.history, self.heads
+        return history_seq.history, head_history
 
     def train_sequential(
         self,
@@ -239,10 +245,18 @@ class CasacadeSegmentor:
             )
             if len(X[cl_idxs[i]]) < batch_size:
                 batch_size = len(X[cl_idxs[i]])
-                validation_split = 0
-            histories.append(
-                self.heads[i]
-                .fit(
+                history = self.heads[i].fit(
+                    X[cl_idxs[i]],
+                    Y[cl_idxs[i]],
+                    batch_size=batch_size,
+                    epochs=epochs,
+                    shuffle=True,
+                    validation_split=0,
+                    callbacks=callbacks,
+                    **kwargs,
+                )
+            else:
+                history = self.heads[i].fit(
                     X[cl_idxs[i]],
                     Y[cl_idxs[i]],
                     batch_size=batch_size,
@@ -252,17 +266,17 @@ class CasacadeSegmentor:
                     callbacks=callbacks,
                     **kwargs,
                 )
-                .history
-            )
+            histories.append(history.history)
 
-        return histories
+        return self.heads, histories
 
     def get_cli_idxs(self, labels):
         cl_idxs = [[] for i in range(self.K)]
         for i, l in enumerate(labels):
             cl_idxs[l].append(i)
+        print("************ Each Cluster population: ************")
         for j in range(self.K):
-            print(len(cl_idxs[j]))
+            print("cluster ", j, ": ", len(cl_idxs[j]))
         return cl_idxs
 
     def get_gmm_means(self, size):
@@ -291,17 +305,22 @@ class CasacadeSegmentor:
         for head in self.heads:
             head.compile(optimizer=optimizer, metrics=metrics, loss=loss)
             idxs = np.argwhere(clusters == cnt)
-            (loss_v, accuracy) = head.evaluate(
-                feats[idxs].squeeze(),
-                Y[idxs].squeeze(),
-                batch_size=32,
-                **kwargs,
-            )
-            print("loss : {}".format(loss_v))
-            print("accuracy : {}".format(accuracy))
-            cnt += 1
-
-        return (loss, accuracy)
+            cluster_feat = feats[idxs].squeeze()
+            cluster_Y = Y[idxs].squeeze()
+            if len(idxs) == 1:
+                print("len is one ", cnt)
+                cluster_feat = np.expand_dims(cluster_feat, axis=0)
+                cluster_Y = np.expand_dims(cluster_Y, axis=0)
+            if len(idxs) != 0:
+                (loss_v, accuracy) = head.evaluate(
+                    cluster_feat,
+                    cluster_Y,
+                    batch_size=32,
+                    **kwargs,
+                )
+                print("loss : {}".format(loss_v))
+                print("accuracy : {}".format(accuracy))
+                cnt += 1
 
     def predict(self, X, a=40, b=0.5):
         X = np.expand_dims(X, 0)
