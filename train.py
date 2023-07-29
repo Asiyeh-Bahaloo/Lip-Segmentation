@@ -80,7 +80,7 @@ def main():
     # get the parameters
     args = parse_arguments()
     input_shape = (40, 40, 3)
-    head_epochs = 10
+    head_epochs = 2
 
     # make output directory if it is not exist
     if not os.path.exists(args.results_path):
@@ -142,7 +142,7 @@ def main():
         est_y=result[56:112],
         gt_x=train_points[I, 0:56],
         gt_y=train_points[I, 56:112],
-        out_path=args.results_path + "/result_train_16.jpg",
+        out_path=os.path.join(args.results_path, "lip_points_train.jpg"),
     )
     # I = 6
     # result = model.batch_predict(test_images[0:20, :, :, :])
@@ -159,26 +159,31 @@ def main():
         est_x=result[0:56],
         est_y=result[56:112],
         nn=15,
-        out_path=args.results_path + "/segmentation_test_6.jpg",
+        out_path=os.path.join(args.results_path, "lip_segmentation_test.jpg"),
     )
-    vis.show_loss(seq_history, out_path=args.results_path + "/loss_backbone.jpg")
+    vis.show_loss(
+        seq_history, out_path=os.path.join(args.results_path, "backbone_loss.jpg")
+    )
     vis.show_accuracy(
-        seq_history, out_path=args.results_path + "/accuracy_backbone.jpg"
+        seq_history, out_path=os.path.join(args.results_path, "backbone_accuracy.jpg")
     )
     vis.show_gmm_means(
         model.get_gmm_means(size=(12, 16, 3)),
         K=10,
-        out_path=args.results_path + "/gmm_mean",
+        out_path=os.path.join(args.results_path, "gmm_mean"),
     )
     cnt = 0
     for history_head in heads_history:
         cnt = cnt + 1
         vis.show_loss(
-            history_head, out_path=args.results_path + "/loss_head_" + str(cnt) + ".jpg"
+            history_head,
+            out_path=os.path.join(args.results_path, "head_loss" + str(cnt) + ".jpg"),
         )
         vis.show_accuracy(
             history_head,
-            out_path=args.results_path + "/accuracy_head_" + str(cnt) + ".jpg",
+            out_path=os.path.join(
+                args.results_path, "head_accuracy" + str(cnt) + ".jpg"
+            ),
         )
 
 

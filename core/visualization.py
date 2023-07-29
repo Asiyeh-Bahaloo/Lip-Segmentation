@@ -1,3 +1,4 @@
+import os
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import numpy as np
@@ -9,6 +10,7 @@ def show_data_sample(
     gt_y,
     out_path=None,
 ):
+    plt.clf()
     plt.scatter(gt_x, gt_y, s=2)
     plt.imshow(image)
     if out_path != None:
@@ -18,6 +20,7 @@ def show_data_sample(
 
 
 def show_image(image, out_path=None):
+    plt.clf()
     plt.imshow(image.astype(int))
     if out_path != None:
         plt.savefig(out_path)
@@ -33,6 +36,7 @@ def show_result_gt(
     gt_y,
     out_path=None,
 ):
+    plt.clf()
     plt.scatter(gt_x, gt_y, s=2)
     plt.scatter(est_x, est_y, s=2)
     plt.imshow(image)
@@ -48,6 +52,7 @@ def show_result(
     est_y,
     out_path=None,
 ):
+    plt.clf()
     plt.scatter(est_x, est_y, s=2)
     plt.imshow(image)
     if out_path != None:
@@ -63,6 +68,7 @@ def show_lip_segment(
     nn=15,
     out_path=None,
 ):
+    plt.clf()
     plt.scatter(est_x, est_y, s=2)
     nn = 15
     x_new = np.linspace(est_x[0:nn].min(), est_y[0:nn].max(), 50)
@@ -111,9 +117,10 @@ def show_accuracy(history, out_path=None):
 
 
 def show_gmm_means(gmm_means, K=10, out_path=None):
+    plt.clf()
     for i in range(0, K):
         plt.imshow(gmm_means[i, :, :, 0:3])
         if out_path != None:
-            plt.savefig(out_path)
+            plt.savefig(out_path + str(i) + ".jpg")
         else:
             plt.show()

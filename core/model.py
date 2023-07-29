@@ -325,7 +325,7 @@ class CasacadeSegmentor:
     def predict(self, X, a=40, b=0.5):
         X = np.expand_dims(X, 0)
         feat = self.intermediateFeat(X)
-        print("feat", feat.shape)
+        # print("feat", feat.shape)
         label = self.model_gmm.predict(feat.reshape(len(feat), -1))[0]
         m = self.heads[label]
         f = feat[0, :]
@@ -363,29 +363,39 @@ class CasacadeSegmentor:
 
     def save(self, folder_path, **kwargs):
         print("saving the model in ", folder_path)
-        self.model_seq.save(folder_path + "/seq.h5", **kwargs)
-        self.model_seq.save(folder_path + "/seq_gaph.pb", **kwargs)
+        self.model_seq.save(os.path.join(folder_path, "seq.h5"), **kwargs)
+        self.model_seq.save(os.path.join(folder_path, "seq_gaph.pb"), **kwargs)
         np.save(
-            folder_path + "gmm_weights", self.model_gmm.weights_, allow_pickle=False
+            os.path.join(folder_path, "gmm_weights.npy"),
+            self.model_gmm.weights_,
+            allow_pickle=False,
         )
-        np.save(folder_path + "gmm_means", self.model_gmm.means_, allow_pickle=False)
         np.save(
-            folder_path + "gmm_covariances",
+            os.path.join(folder_path, "gmm_means.npy"),
+            self.model_gmm.means_,
+            allow_pickle=False,
+        )
+        np.save(
+            os.path.join(folder_path, "gmm_covariances.npy"),
             self.model_gmm.covariances_,
             allow_pickle=False,
         )
         for i in range(self.K):
-            self.heads[i].save(folder_path + "/head" + str(i) + ".h5")
+            self.heads[i].save(os.path.join(folder_path, "head" + str(i) + ".h5"))
         return True
 
     def load_weights(self, folder_path, **kwargs):
         print("loading the model from ", folder_path)
-        self.model_seq.load_weights(folder_path + "/seq.h5", **kwargs)
-        self.model_gmm.weights_ = np.load(folder_path + "/gmm_weights.npy")
-        self.model_gmm.means_ = np.load(folder_path + "/gmm_means.npy")
-        self.model_gmm.covariances_ = np.load(folder_path + "/gmm_covariances.npy")
+        self.model_seq.load_weights(os.path.join(folder_path, "seq.h5"), **kwargs)
+        self.model_gmm.weights_ = np.load(os.path.join(folder_path, "gmm_weights.npy"))
+        self.model_gmm.means_ = np.load(os.path.join(folder_path, "gmm_means.npy"))
+        self.model_gmm.covariances_ = np.load(
+            os.path.join(folder_path, "gmm_covariances.npy")
+        )
         for i in range(self.K):
-            self.heads[i].load_weights(folder_path + "/head" + str(i) + ".h5")
+            self.heads[i].load_weights(
+                os.path.join(folder_path, "head" + str(i) + ".h5")
+            )
         return True
 
     def summary(self):
