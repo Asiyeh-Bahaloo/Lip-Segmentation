@@ -2,6 +2,7 @@ import os
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import numpy as np
+import cv2
 
 
 def show_data_sample(
@@ -65,16 +66,13 @@ def show_lip_segment(
     image,
     est_x,
     est_y,
-    nn=15,
     out_path=None,
 ):
     plt.clf()
-    plt.scatter(est_x, est_y, s=2)
-    nn = 15
-    x_new = np.linspace(est_x[0:nn].min(), est_y[0:nn].max(), 50)
-    f = interp1d(est_x[0:nn], est_y[0:nn], kind="quadratic")
-    y_smooth = f(x_new)
-    plt.plot(x_new, y_smooth)
+    points = [(x, y) for x, y in zip(est_x, est_y)]
+    contours = [np.array(points).reshape((-1, 1, 2)).astype(np.int32)]
+
+    cv2.drawContours(image, contours, 0, (255, 0, 0), thickness=cv2.FILLED)
     plt.imshow(image)
     if out_path != None:
         plt.savefig(out_path)
@@ -119,7 +117,7 @@ def show_accuracy(history, out_path=None):
 def show_gmm_means(gmm_means, K=10, out_path=None):
     plt.clf()
     for i in range(0, K):
-        plt.imshow(gmm_means[i, :, :, 0:3])
+        plt.imshow((gmm_means[i, :, :, 0:3] * 255).astype(np.uint8))
         if out_path != None:
             plt.savefig(out_path + str(i) + ".jpg")
         else:

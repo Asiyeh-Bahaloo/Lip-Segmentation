@@ -178,7 +178,7 @@ class CasacadeSegmentor:
             lr=0.001,
             momentum=0.99,
         )
-
+        print("************ train finished successfully ************")
         return history_seq.history, head_history
 
     def train_sequential(
@@ -288,7 +288,8 @@ class CasacadeSegmentor:
         return 0
 
     def evaluate_sequential(self, X, Y, metrics, loss, optimizer="RMSprop", **kwargs):
-        self.model_seq.model.compile(optimizer=optimizer, metrics=metrics, loss=loss)
+        print("************Evaluating backbone: ************")
+        self.model_seq.compile(optimizer=optimizer, metrics=metrics, loss=loss)
         (loss, accuracy) = self.model_seq.evaluate(X, Y, batch_size=32, **kwargs)
 
         print("loss : {}".format(loss))
@@ -299,6 +300,7 @@ class CasacadeSegmentor:
     def evaluate_heads(
         self, X, Y, metrics, loss, optimizer=SGD(lr=0.001, momentum=0.99), **kwargs
     ):
+        print("************ Evaluating Each Head: ************")
         feats = self.intermediateFeat(X)
         clusters = self.model_gmm.predict(feats.reshape(len(feats), -1))
         cnt = 0
@@ -318,8 +320,8 @@ class CasacadeSegmentor:
                     batch_size=32,
                     **kwargs,
                 )
-                print("loss : {}".format(loss_v))
-                print("accuracy : {}".format(accuracy))
+                print(f"Head{cnt+1}->loss : {loss_v}")
+                print(f"accuracy{cnt+1}->accuracy : {accuracy}")
                 cnt += 1
 
     def predict(self, X, a=40, b=0.5):
@@ -365,21 +367,8 @@ class CasacadeSegmentor:
         print("saving the model in ", folder_path)
         self.model_seq.save(os.path.join(folder_path, "seq.h5"), **kwargs)
         self.model_seq.save(os.path.join(folder_path, "seq_gaph.pb"), **kwargs)
-        np.save(
-            os.path.join(folder_path, "gmm_weights.npy"),
-            self.model_gmm.weights_,
-            allow_pickle=False,
-        )
-        np.save(
-            os.path.join(folder_path, "gmm_means.npy"),
-            self.model_gmm.means_,
-            allow_pickle=False,
-        )
-        np.save(
-            os.path.join(folder_path, "gmm_covariances.npy"),
-            self.model_gmm.covariances_,
-            allow_pickle=False,
-        )
+        with open(os.path.join(folder_path, "gmm_model.pkl"), "wb") as file:
+            dump(self.model_gmm, file)
         for i in range(self.K):
             self.heads[i].save(os.path.join(folder_path, "head" + str(i) + ".h5"))
         return True
@@ -387,11 +376,9 @@ class CasacadeSegmentor:
     def load_weights(self, folder_path, **kwargs):
         print("loading the model from ", folder_path)
         self.model_seq.load_weights(os.path.join(folder_path, "seq.h5"), **kwargs)
-        self.model_gmm.weights_ = np.load(os.path.join(folder_path, "gmm_weights.npy"))
-        self.model_gmm.means_ = np.load(os.path.join(folder_path, "gmm_means.npy"))
-        self.model_gmm.covariances_ = np.load(
-            os.path.join(folder_path, "gmm_covariances.npy")
-        )
+        with open(os.path.join(folder_path, "gmm_model.pkl"), "rb") as file:
+            self.model_gmm = load(file)
+
         for i in range(self.K):
             self.heads[i].load_weights(
                 os.path.join(folder_path, "head" + str(i) + ".h5")
