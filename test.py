@@ -39,8 +39,15 @@ def parse_arguments():
     parser.add_argument(
         "--weights_path",
         type=str,
-        help="Path to the model's weights for loading",
+        help="Path to the directory containing all of the model's weights for loading",
         required=True,
+    )
+    parser.add_argument(
+        "--shape_predictor_path",
+        type=str,
+        help="Path to dlib shape predictor dat file",
+        required=True,
+        default="./shape_predictor_68_face_landmarks.dat",
     )
     args = parser.parse_args()
     return args
@@ -49,7 +56,7 @@ def parse_arguments():
 def main():
     # get the parameters
     args = parse_arguments()
-    input_shape = (40, 40, 3)
+    w, h, channel = (40, 40, 3)
 
     # make output directory if it is not exist
     if not os.path.exists(args.results_path):
@@ -57,19 +64,29 @@ def main():
 
     # read test,mean and std images
     image = cv2.imread(args.image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     mean_image = cv2.imread(args.mean_image_path)
     std_image = cv2.imread(args.std_image_path)
+    if image is None or mean_image is None or std_image is None:
+        print("Some of the pathes are wrong!!!")
+        return
+
+    # resize all images
+    lips = crop_mouth_with_dlib(image, shape_predictor_path=args.shape_predictor_path)
+    image = cv2.resize(lips[0], (w, h))
+    mean_image = cv2.resize(mean_image, (w, h))
+    std_image = cv2.resize(std_image, (w, h))
 
     # nomalize the test image
-    image = normalize(image, mean_image, std_image)
+    norm_image = normalize(image, mean_image, std_image)
 
     # create model
-    model = CasacadeSegmentor(input_shape=input_shape, num_output=112, K=10)
+    model = CasacadeSegmentor(input_shape=(w, h, channel), num_output=112, K=10)
     # load weights into the model
-    history_seq, history_heads = model.load(args.weights_path)
+    model.load_weights(args.weights_path)
 
     # predict lip area
-    result = model.predict(image)
+    result = model.predict(norm_image)
     vis.show_result(
         image,
         result[0:56],
@@ -82,6 +99,13 @@ def main():
         image,
         est_x=result[0:56],
         est_y=result[56:112],
-        nn=15,
         out_path=args.results_path + "/predict_segmentation.jpg",
     )
+    print(
+        "Segmentation result saved in: ",
+        args.results_path + "/predict_segmentation.jpg",
+    )
+
+
+if __name__ == "__main__":
+    main()

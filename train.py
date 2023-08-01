@@ -71,6 +71,18 @@ def parse_arguments():
         help="Path to load model's weights",
         required=False,
     )
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        help="Name of folder containing the saved model",
+        default="model",
+    )
+    parser.add_argument(
+        "--head_epochs",
+        type=int,
+        help="number of finetuning epochs for each cluster",
+        default=100,
+    )
 
     args = parser.parse_args()
     return args
@@ -80,10 +92,13 @@ def main():
     # get the parameters
     args = parse_arguments()
     input_shape = (40, 40, 3)
+    model_path = os.path.join(args.results_path, args.model_name)
 
     # make output directory if it is not exist
     if not os.path.exists(args.results_path):
         os.makedirs(args.results_path)
+    if not os.path.exists(model_path):
+        os.makedirs(model_path)
 
     # read the training data
     images, x, y, intest = read_data(
@@ -102,18 +117,18 @@ def main():
     std_image = std_X(train_images, mean_image)
 
     # nomalize data based on mean and STD images
-    train_images = normalize(train_images, mean_image, std_image)
-    test_images = normalize(test_images, mean_image, std_image)
-    train_points = normalizep(train_points)
-    test_points = normalizep(test_points)
+    norm_train_images = normalize(train_images, mean_image, std_image)
+    norm_test_images = normalize(test_images, mean_image, std_image)
+    norm_train_points = normalizep(train_points)
+    norm_test_points = normalizep(test_points)
 
     # create an instance of the model
     model = CasacadeSegmentor(input_shape=input_shape, num_output=112, K=10)
 
     # train the model with given parameters
-    history_seq, history_heads = model.fit(
-        train_images,
-        train_points,
+    seq_history, heads_history = model.fit(
+        norm_train_images,
+        norm_train_points,
         epochs=args.epochs,
         batch_size=args.batch_size,
         validation_split=args.validation_split,
@@ -121,26 +136,31 @@ def main():
         metrics=["accuracy"],
         optimizer="RMSprop",
         verbose=1,
+        head_epochs=args.head_epochs,
     )
     # save the trained model
-    model.save(args.results_path)
+    model.save(model_path)
 
     # evaluate the model performance
-    print("Evaluating on train set")
-    model.evaluate(train_images, train_points, metrics=["accuracy"], loss=args.loss)
-    print("Evaluating on test set")
-    model.evaluate(test_images, test_points, metrics=["accuracy"], loss=args.loss)
+    print("***********Evaluating on train set*************")
+    model.evaluate(
+        norm_train_images, norm_train_points, metrics=["accuracy"], loss=args.loss
+    )
+    print("**********Evaluating on test set**************")
+    model.evaluate(
+        norm_test_images, norm_test_points, metrics=["accuracy"], loss=args.loss
+    )
 
     # sample data visualization
     I = 16
-    result = model.predict(train_images[I, :, :, :])
+    result = model.predict(norm_train_images[I, :, :, :])
     vis.show_result_gt(
-        image=train_images[I, :, :, :],
+        image=train_images[I],
         est_x=result[0:56],
         est_y=result[56:112],
         gt_x=train_points[I, 0:56],
         gt_y=train_points[I, 56:112],
-        out_path=args.results_path + "/result_train_16.jpg",
+        out_path=os.path.join(args.results_path, "lip_points_train.jpg"),
     )
     # I = 6
     # result = model.batch_predict(test_images[0:20, :, :, :])
@@ -153,30 +173,34 @@ def main():
     #     out_path=args.results_path + "/result_test_6.jpg",
     # )
     vis.show_lip_segment(
-        test_images[I, :, :, :],
+        test_images[I],
         est_x=result[0:56],
         est_y=result[56:112],
-        nn=15,
-        out_path=args.results_path + "/segmentation_test_6.jpg",
+        out_path=os.path.join(args.results_path, "lip_segmentation_test.jpg"),
     )
-    vis.show_loss(history_seq, out_path=args.results_path + "/loss_backbone.jpg")
+    vis.show_loss(
+        seq_history, out_path=os.path.join(args.results_path, "backbone_loss.jpg")
+    )
     vis.show_accuracy(
-        history_seq, out_path=args.results_path + "/accuracy_backbone.jpg"
+        seq_history, out_path=os.path.join(args.results_path, "backbone_accuracy.jpg")
     )
     vis.show_gmm_means(
-        model.get_gmm_means(size=(3, 3, 64)),
+        model.get_gmm_means(size=(12, 16, 3)),
         K=10,
-        out_path=args.results_path + "/gmm_mean",
+        out_path=os.path.join(args.results_path, "gmm_mean"),
     )
     cnt = 0
-    for history_head in history_heads:
+    for history_head in heads_history:
         cnt = cnt + 1
         vis.show_loss(
-            history_head, out_path=args.results_path + "/loss_head_" + str(cnt) + ".jpg"
+            history_head,
+            out_path=os.path.join(args.results_path, "head_loss" + str(cnt) + ".jpg"),
         )
         vis.show_accuracy(
             history_head,
-            out_path=args.results_path + "/accuracy_head_" + str(cnt) + ".jpg",
+            out_path=os.path.join(
+                args.results_path, "head_accuracy" + str(cnt) + ".jpg"
+            ),
         )
 
 

@@ -1,6 +1,8 @@
+import os
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import numpy as np
+import cv2
 
 
 def show_data_sample(
@@ -9,6 +11,7 @@ def show_data_sample(
     gt_y,
     out_path=None,
 ):
+    plt.clf()
     plt.scatter(gt_x, gt_y, s=2)
     plt.imshow(image)
     if out_path != None:
@@ -18,6 +21,7 @@ def show_data_sample(
 
 
 def show_image(image, out_path=None):
+    plt.clf()
     plt.imshow(image.astype(int))
     if out_path != None:
         plt.savefig(out_path)
@@ -33,6 +37,7 @@ def show_result_gt(
     gt_y,
     out_path=None,
 ):
+    plt.clf()
     plt.scatter(gt_x, gt_y, s=2)
     plt.scatter(est_x, est_y, s=2)
     plt.imshow(image)
@@ -48,6 +53,7 @@ def show_result(
     est_y,
     out_path=None,
 ):
+    plt.clf()
     plt.scatter(est_x, est_y, s=2)
     plt.imshow(image)
     if out_path != None:
@@ -60,15 +66,13 @@ def show_lip_segment(
     image,
     est_x,
     est_y,
-    nn=15,
     out_path=None,
 ):
-    plt.scatter(est_x, est_y, s=2)
-    nn = 15
-    x_new = np.linspace(est_x[0:nn].min(), est_y[0:nn].max(), 50)
-    f = interp1d(est_x[0:nn], est_y[0:nn], kind="quadratic")
-    y_smooth = f(x_new)
-    plt.plot(x_new, y_smooth)
+    plt.clf()
+    points = [(x, y) for x, y in zip(est_x, est_y)]
+    contours = [np.array(points).reshape((-1, 1, 2)).astype(np.int32)]
+
+    cv2.drawContours(image, contours, 0, (255, 0, 0), thickness=cv2.FILLED)
     plt.imshow(image)
     if out_path != None:
         plt.savefig(out_path)
@@ -77,8 +81,12 @@ def show_lip_segment(
 
 
 def show_loss(history, out_path=None):
+    plt.clf()
     plt.plot(history["loss"])
-    plt.plot(history["val_loss"])
+    try:
+        plt.plot(history["val_loss"])
+    except:
+        print("No validation data is available")
     plt.title("Model loss")
     plt.ylabel("loss")
     plt.xlabel("Epoch")
@@ -90,8 +98,12 @@ def show_loss(history, out_path=None):
 
 
 def show_accuracy(history, out_path=None):
+    plt.clf()
     plt.plot(history["accuracy"])
-    plt.plot(history["val_accuracy"])
+    try:
+        plt.plot(history["val_accuracy"])
+    except:
+        print("No validation data is available")
     plt.title("Model accuracy")
     plt.ylabel("accuracy")
     plt.xlabel("Epoch")
@@ -103,9 +115,10 @@ def show_accuracy(history, out_path=None):
 
 
 def show_gmm_means(gmm_means, K=10, out_path=None):
+    plt.clf()
     for i in range(0, K):
-        plt.imshow(gmm_means[i, :, :, 0:3])
+        plt.imshow((gmm_means[i, :, :, 0:3] * 255).astype(np.uint8))
         if out_path != None:
-            plt.savefig(out_path)
+            plt.savefig(out_path + str(i) + ".jpg")
         else:
             plt.show()

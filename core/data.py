@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+import dlib
 
 
 def read_data(data_path, annotation_path, test_csv_path, image_size=(40, 40)):
@@ -157,7 +158,7 @@ def split_train_val(images, x, y, intest):
     y_train = []
     x_test = []
     y_test = []
-    for i in range(0, 2330):
+    for i in range(0, len(images)):
 
         if intest[i] == True:
             test_images.append(images[i])
@@ -167,13 +168,13 @@ def split_train_val(images, x, y, intest):
             train_images.append(images[i])
             x_train.append(x[i])
             y_train.append(y[i])
-    print(len(train_images))
-    print(len(test_images))
+    print("Number of training images: ", len(train_images))
+    print("Number of testing images: ", len(test_images))
 
     train_points = np.concatenate([np.array(x_train), np.array(y_train)], axis=1)
     test_points = np.concatenate([np.array(x_test), np.array(y_test)], axis=1)
 
-    print(np.array(x_train).shape)
+    print("Shape of training data :", np.array(x_train).shape)
 
     return train_images, test_images, train_points, test_points
 
@@ -186,3 +187,34 @@ def std_X(train_images, mean_image):
     std = zer / len(train_images)
     std_image = np.sqrt(std)
     return std_image
+
+
+def crop_mouth_with_dlib(image, shape_predictor_path):
+    lips = []
+    detector = dlib.get_frontal_face_detector()
+    predictor = dlib.shape_predictor(shape_predictor_path)
+    img = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    dets = detector(img, 1)
+
+    print("Number of faces detected: {}".format(len(dets)))
+    for k, d in enumerate(dets):
+        print(
+            "Detection {}: Left: {} Top: {} Right: {} Bottom: {}".format(
+                k, d.left(), d.top(), d.right(), d.bottom()
+            )
+        )
+        # Get the landmarks/parts for the face in box d.
+        shape = predictor(img, d)
+        # crop the mouth by  outer most points.
+        xmouthpoints = [shape.part(x).x for x in range(48, 67)]
+        ymouthpoints = [shape.part(x).y for x in range(48, 67)]
+        maxx = max(xmouthpoints)
+        minx = min(xmouthpoints)
+        maxy = max(ymouthpoints)
+        miny = min(ymouthpoints)
+
+        # to show the mouth properly pad both sides
+        pad = 20
+        crop_image = image[miny - pad : maxy + pad, minx - pad : maxx + pad]
+        lips.append(crop_image)
+    return lips
